@@ -1,6 +1,8 @@
 # Southern elephant seals (Mirounga leonina) on Macquarie and Heard islands
 
-Status: setup notes only (2026-11-10). No analysis has been run yet.
+Status: first look done (2026-11-10), run in a cloud sandbox. Short answer: the data are there
+for both islands, but neither radar at 20 m nor optical at 10 m shows the seals in a quick look.
+See "First look" below.
 
 Aim: see what public satellite data (DEA Sentinel-1 NRB radar, Sentinel-2 L2A) can say about
 haul-out sites on Macquarie Island and Heard Island, and run it on Pawsey Setonix in the same way
@@ -14,9 +16,16 @@ as [tasmania-s1-change](https://github.com/mdsumner/tasmania-s1-change).
   - Each item JSON sits next to its COGs, e.g.
     `https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/57/F/VV/YYYY/M/<id>/<id>.json`,
     so no STAC API is needed (earth-search is blocked from some sandboxes anyway).
-- **DEA Sentinel-1 NRB** (IW, per-burst COGs) in `s3://dea-public-data-dev/baseline/ga_s1_nrb_iw_*_1/`,
-  unsigned over HTTPS. Coverage of either island is **not yet checked**. The bucket-walk `index`
-  step from tasmania-s1-change works for this with a new bbox.
+- **DEA Sentinel-1 NRB** (IW, per-burst COGs) in `s3://dea-public-data-dev/baseline/ga_s1_nrb_iw_hh_1/`,
+  unsigned over HTTPS. Checked 2026-11-10:
+  - **Heard:** HH, ascending, 12-day repeats on track 100 (bursts 214461-214465, iw1/iw2, near
+    full island cover) and track 173 (371257-371261 iw3, about 95%). Dates: 6 Dec 2024 to
+    29 Mar 2025 (moult season) and 5 Aug to 16 Oct 2026 (before and during breeding). Track 027
+    items match the bounding box but do not actually cover the island.
+  - **Macquarie:** nothing, in any DEA NRB product (hh, hh_hv, vv, vv_vh). Sentinel-2 only for now.
+- **Sentinel-2 at Macquarie:** 372 L2A items on 57FVV for Aug-Nov 2019-2026; 40 under 40% tile
+  cloud. Best clear island views (SCL clear fraction): 2021-10-04 (96%, right at the breeding
+  peak), 2023-08-13 (90%), 2023-11-08 (89%), 2026-10-21 (82%).
 
 ## Science notes (untested)
 
@@ -31,16 +40,44 @@ as [tasmania-s1-change](https://github.com/mdsumner/tasmania-s1-change).
   ratio as in the earlier Amanda Bay emperor work.
 - Heard is very cloudy, so expect few clear Sentinel-2 dates; S1 does not care about cloud.
 
-## Plan
+## First look (2026-11-10)
 
-1. `index`: count clear S2 dates on 57FVV / 43FDB / 43FCB (2019-2026) and list DEA S1 NRB bursts
-   over both islands.
-2. `chips`: S2 and S1 chips over known haul-out beaches and penguin colonies, per date.
-3. `change`: per-beach statistics over the season (S2 reflectance, S1 VV/VH or HH dB), August vs
-   October, and year to year.
-4. `figure`: quicklook panels.
+**Heard, DEA S1 HH, track 100** (`docs/heard_s1_season.png`, `docs/heard_s1_zoom.png`)
 
-Each step will be a subcommand of one script so the per-scene step can be a Slurm array task.
+![Heard S1 season](docs/heard_s1_season.png)
+
+- October minus August 2026 is dominated by snow and surface state: the glaciated interior
+  darkens and the low coastal fringe brightens by 3-6 dB, and the moult season (Dec-Mar) vs
+  August difference is even bigger. A 12-day reference pair (Aug vs late Aug/Sep) shows changes
+  of the same size, so a 2-3 dB beach signal would be hard to separate from weather.
+- No beach-scale patch stands out in the east (Spit Bay side) or Laurens Peninsula zooms.
+  Breeding beaches on Heard are mostly narrow strips one to five 20 m pixels wide.
+
+**Macquarie, Sentinel-2** (`docs/macquarie_s2_island.png`, `docs/macquarie_s2_isthmus.png`)
+
+![Macquarie Isthmus](docs/macquarie_s2_isthmus.png)
+
+- The Isthmus beaches are a few 10 m pixels wide, and nothing at the Isthmus distinguishes
+  2021-10-04 (breeding peak) from 2023-08-13 (before) or 2023-11-08 (after), in true colour or
+  in a red/blue ratio. Seals on dark cobble have low contrast, and the surf line moves more
+  than any seal patch would.
+
+**So far:** individuals are out (expected), and dense harems are not obvious at 10-20 m without
+help. Site positions on the figures are approximate and only for orientation.
+
+## What would make it work
+
+1. **Haul-out polygons and counts.** AAD ground counts or published beach lists for Heard and
+   Macquarie (e.g. the Isthmus, Sandy Bay, Hurd Point; Spit Bay, Atlas Cove on Heard). With beach
+   polygons, compute per-beach statistics through the season instead of looking at maps.
+2. **Per-beach time series.** S1: mean HH dB per beach minus a nearby inland reference, per
+   12-day date, Aug to Dec, so weather and snow cancel. S2: per-beach reflectance on clear dates.
+   A harem signal should rise to mid-October and drop in November as females leave.
+3. **Full DEA archive** (early 2027) to get every season, and Nov-Dec 2026 for the drop after weaning.
+4. **Very high resolution** (0.3-0.5 m, e.g. Maxar via the AAD) for actual counts; use S1/S2 to
+   pick dates and beaches.
+5. **Penguins:** royal (Hurd Point) and king (Lusitania Bay) colonies are much larger and
+   guano-stained, so they are better 10 m targets, using the same per-site approach.
 
 ## Setonix notes (from the Tasmania S1 run, which worked on 2026-11-10)
 
@@ -74,4 +111,20 @@ source $MYSOFTWARE/venvs/seals/bin/activate
 pip install -r mi-island-s1-mirounga/requirements.txt
 ```
 
-Then, once the script exists: `cd mi-island-s1-mirounga && sbatch --account=pawsey1362 setonix.slurm`.
+Then: `cd mi-island-s1-mirounga && sbatch --account=pawsey1362 setonix.slurm`.
+
+## Run it
+
+```bash
+python seals.py index  --island heard        # ~4 min (S3 listing + item JSONs)
+python seals.py s1     --island heard        # 42 date/track mosaics, 20 m, ~1.5 min
+python seals.py figure --island heard
+python seals.py index  --island macquarie --months 8 9 10 11   # ~1 min
+python seals.py s2     --island macquarie --max-cloud 40        # 40 chips, ~2.5 min
+python seals.py figure --island macquarie
+```
+
+`SEALS_WORK` and `SEALS_OUT` set the working and output folders (default `work/`, `out/`).
+The S1 stack records its settings in GeoTIFF tags and S2 chips are only reused if their grid
+matches, so a smoke-test run will not be silently reused. Timings above are from a cloud
+sandbox; all of it fits on one Setonix node with a few threads.
