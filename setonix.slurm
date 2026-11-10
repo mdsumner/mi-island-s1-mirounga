@@ -1,6 +1,5 @@
 #!/bin/bash --login
-# Elephant seal haul-outs, Macquarie and Heard (DEA S1 NRB + Sentinel-2 L2A).
-# Template only: the analysis script (seals.py) is not written yet.
+# Elephant seal haul-outs, Heard and Macquarie (DEA S1 NRB HH + Sentinel-2 L2A). Small job.
 #
 #   cd <this repo> && sbatch --account=pawsey1362 setonix.slurm
 #
@@ -10,7 +9,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G
-#SBATCH --time=00:30:00
+#SBATCH --time=00:45:00
 #SBATCH --output=%x-%j.out
 
 set -euo pipefail
@@ -27,7 +26,9 @@ mkdir -p "$SEALS_WORK" "$SEALS_OUT"
 export CPL_VSIL_CURL_CACHE_SIZE=200000000
 
 T=${SLURM_CPUS_PER_TASK}
-python "$SRC" index  --threads "$T"
-python "$SRC" chips  --threads "$T"
-python "$SRC" change --threads "$T"
-python "$SRC" figure
+python "$SRC" index  --island heard --threads "$T"
+python "$SRC" s1     --island heard --threads "$T"
+python "$SRC" figure --island heard
+python "$SRC" index  --island macquarie --months 8 9 10 11 --threads "$T"
+python "$SRC" s2     --island macquarie --max-cloud 40 --threads "$T"
+python "$SRC" figure --island macquarie
